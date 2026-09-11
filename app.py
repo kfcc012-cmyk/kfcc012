@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+"""MG 금융 데이터 대시보드 + 조합원 관리 - Streamlit 배포용 단일 파일"""
+
 import streamlit as st
 import streamlit.components.v1 as components
 
