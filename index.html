@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사주 분석</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lunar-javascript/1.7.7/lunar.min.js"></script>
+<style>
+    @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700;800&family=Pretendard:wght@400;500;600;700;800&display=swap");
+    :root{
+      --bg:#0d1020;
+      --bg2:#141933;
+      --panel:rgba(17,22,41,.78);
+      --panel-strong:#121831;
+      --panel-soft:rgba(255,255,255,.06);
+      --ink:#eef2ff;
+      --muted:#b8bfd8;
+      --line:rgba(255,255,255,.1);
+      --line-strong:rgba(240,214,150,.24);
+      --accent:#d8b36c;
+      --accent-2:#8a68ff;
+      --accent-3:#5ad4c3;
+      --soft:#1d2547;
+      --danger:#ff7f8f;
+      --shadow:0 22px 60px rgba(0,0,0,.34);
+      --shadow-soft:0 12px 30px rgba(0,0,0,.2);
+      --radius:24px;
+      --wood:#56b184;
+      --fire:#ff8f6b;
+      --earth:#d4a85d;
+      --metal:#b7bfd4;
+      --water:#63b6ff;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 10% 15%, rgba(138,104,255,.20), transparent 28%),
+        radial-gradient(circle at 85% 20%, rgba(90,212,195,.13), transparent 24%),
+        radial-gradient(circle at 70% 80%, rgba(216,179,108,.12), transparent 28%),
+        linear-gradient(180deg, #0b0e1b 0%, #11162a 38%, #0e1323 100%);
+      min-height:100vh;
+      position:relative;
+      overflow-x:hidden;
+    }
+    body::before,
+    body::after{
+      content:"";
+      position:fixed;
+      inset:auto;
+      pointer-events:none;
+      z-index:0;
+      filter:blur(4px);
+    }
+    body::before{
+      width:320px;height:320px;left:-110px;top:-60px;border-radius:50%;
+      background:radial-gradient(circle, rgba(216,179,108,.18) 0%, rgba(216,179,108,.05) 42%, transparent 68%);
+    }
+    body::after{
+      width:520px;height:520px;right:-180px;bottom:-140px;border-radius:50%;
+      background:radial-gradient(circle, rgba(138,104,255,.18) 0%, rgba(138,104,255,.06) 38%, transparent 70%);
+    }
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, opacity .18s ease}
+    button:hover{transform:translateY(-1px)}
+    .app{position:relative;z-index:1;width:min(1320px,calc(100% - 28px));margin:0 auto 72px}
+    .hero{
+      position:relative;overflow:hidden;
+      display:flex;justify-content:space-between;align-items:center;gap:24px;
+      padding:34px 34px;border-radius:30px;
+      background:
+        linear-gradient(135deg, rgba(16,21,40,.98) 0%, rgba(25,31,61,.96) 45%, rgba(60,37,90,.93) 100%);
+      border:1px solid var(--line-strong);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(18px);
+    }
+    .hero::before{pointer-events:none;
+      content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;
+      background:radial-gradient(circle, rgba(216,179,108,.22), transparent 62%);
+    }
+    .hero::after{pointer-events:none;
+      content:"☯";position:absolute;right:28px;bottom:18px;font-size:110px;line-height:1;opacity:.08;color:#fff;
+      font-family:"Noto Serif KR", serif;
+    }
+    .hero-copy{max-width:780px}
+    .hero-badge{
+      display:inline-flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px 14px;border-radius:999px;
+      background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#f5e7c6;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+    .hero h1{
+      margin:0 0 10px;font-size:clamp(31px,4vw,46px);line-height:1.1;letter-spacing:-.02em;
+      font-family:"Noto Serif KR",serif;font-weight:800;color:#fff;
+    }
+    .hero p{margin:0;color:rgba(239,242,255,.8);font-size:15px;line-height:1.75}
+    .status{
+      text-align:right;font-size:13px;color:rgba(255,255,255,.82);
+      padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08)
+    }
+    .hero-actions{position:relative;z-index:5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:52px}
+
+    .tabs{display:flex;gap:8px;margin:18px 0}
+    .tab{
+      border:1px solid var(--line);background:rgba(255,255,255,.04);padding:11px 17px;border-radius:999px;
+      font-weight:800;color:var(--muted);backdrop-filter:blur(12px)
+    }
+    .tab.active{background:linear-gradient(135deg,var(--accent),#f1d096);color:#241913;border-color:transparent;box-shadow:0 10px 25px rgba(216,179,108,.25)}
+    .view.hidden,.hidden{display:none!important}
+    .grid{display:grid;grid-template-columns:390px 1fr;gap:20px;align-items:start}
+    .card,.section-card,.pillar,.cycle,.year-chip{
+      background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(20px)
+    }
+    .card{
+      border-radius:var(--radius);box-shadow:var(--shadow-soft);padding:22px;
+      background:linear-gradient(180deg, rgba(19,24,45,.86), rgba(14,19,36,.82));
+    }
+    .card h2,.card h3,.section-card h3{margin:0;font-family:"Noto Serif KR",serif}
+    .section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .section-title h2{font-size:21px;display:flex;align-items:center;gap:10px}
+    .section-title h2::before{
+      content:"✦";display:inline-flex;align-items:center;justify-content:center;
+      width:28px;height:28px;border-radius:50%;font-size:13px;color:#2a1d0f;
+      background:linear-gradient(135deg,#f5dfb3,var(--accent));box-shadow:0 8px 20px rgba(216,179,108,.22)
+    }
+    .muted,.small{color:var(--muted);font-size:12px;line-height:1.6}
+    .field{margin-bottom:13px}
+    .field label{display:block;margin-bottom:8px;font-size:13px;font-weight:800;color:#f0f2fb}
+    .field input,.field select,.field textarea,.toolbar input,.analysis-picker select,.auth-box input{
+      width:100%;
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:14px;
+      padding:12px 13px;
+      background:rgba(255,255,255,.045);
+      color:var(--ink);
+      outline:none;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .field input::placeholder,.field textarea::placeholder,.toolbar input::placeholder,.auth-box input::placeholder{color:#8d96b6}
+    .field input:focus,.field select:focus,.field textarea:focus,.toolbar input:focus,.analysis-picker select:focus,.auth-box input:focus{
+      border-color:rgba(216,179,108,.7);
+      box-shadow:0 0 0 4px rgba(216,179,108,.12), inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    select option{color:#111}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .checkbox-row{display:flex;align-items:center;gap:8px;margin:7px 0 13px;font-size:13px;color:var(--muted)}
+    .checkbox-row input{width:auto;accent-color:var(--accent)}
+    .actions,.integration,.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{
+      border:1px solid transparent;border-radius:14px;padding:11px 15px;font-weight:800;
+      box-shadow:none
+    }
+    .btn-primary{background:linear-gradient(135deg,var(--accent),#f0d296);color:#251b0f;box-shadow:0 12px 24px rgba(216,179,108,.18)}
+    .btn-primary:hover{box-shadow:0 16px 28px rgba(216,179,108,.24)}
+    .btn-soft{background:rgba(216,179,108,.12);color:#f5dfb3;border-color:rgba(216,179,108,.24)}
+    .btn-light{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.12)}
+    .btn-danger{background:rgba(255,127,143,.12);color:#ffb3bd;border-color:rgba(255,127,143,.18)}
+    .btn-dark{background:linear-gradient(135deg,#6652d9,#8a68ff);color:#fff;box-shadow:0 10px 22px rgba(138,104,255,.22)}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    .admin-shell{margin-top:18px}
+    .admin-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+    .public-form{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+    .public-form .field{margin:0}
+    .public-actions{display:flex;justify-content:center;margin:8px 0 20px}
+    .public-actions .btn{padding:14px 32px;border-radius:16px;font-size:15px}
+    .auth-card{margin-top:0}
+    .auth-box{display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px}
+    .toolbar{display:flex;gap:10px;margin-bottom:13px}
+    .toolbar input{flex:1}
+    .count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:28px;padding:0 10px;border-radius:999px;background:rgba(216,179,108,.14);color:#f5dfb3;border:1px solid rgba(216,179,108,.2);font-weight:850;font-size:13px}
+    .table-wrap{overflow-x:auto;border-radius:18px;border:1px solid rgba(255,255,255,.06)}
+    table{width:100%;border-collapse:collapse;min-width:900px;background:rgba(255,255,255,.02)}
+    th,td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;vertical-align:middle}
+    th{font-size:12px;color:#d3d8ea;background:rgba(255,255,255,.045)}
+    td{font-size:13px;color:#edf0fb}
+    .empty{
+      text-align:center;padding:36px 10px;color:var(--muted);border:1px dashed rgba(255,255,255,.12);
+      border-radius:18px;background:rgba(255,255,255,.025)
+    }
+
+    .analysis-picker{display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:18px}
+    .result-hero{
+      position:relative;overflow:hidden;
+      background:linear-gradient(135deg, rgba(255,248,236,.08), rgba(216,179,108,.16));
+      border:1px solid rgba(216,179,108,.22);border-radius:24px;padding:22px;margin-bottom:18px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.04)
+    }
+    .result-hero::after{
+      content:"甲 乙 丙 丁 戊 己 庚 辛 壬 癸";
+      position:absolute;right:18px;top:16px;font-size:11px;letter-spacing:.22em;color:rgba(255,255,255,.14);white-space:nowrap
+    }
+    .result-hero h2{font-size:27px;margin:0 0 8px;font-family:"Noto Serif KR",serif}
+    .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .pill{
+      padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.08);font-size:12px;font-weight:800;color:#fff
+    }
+    .pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .pillar{
+      border-radius:18px;padding:16px 14px;text-align:center;
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.03)
+    }
+    .pillar .label{font-size:12px;color:var(--muted);margin-bottom:8px;letter-spacing:.04em}
+    .pillar .gz{
+      font-size:34px;font-weight:900;letter-spacing:4px;color:#f9e3ae;
+      text-shadow:0 0 20px rgba(216,179,108,.15)
+    }
+    .pillar .meta{font-size:11px;color:#c4c9dd;margin-top:8px;line-height:1.6}
+    .unknown-pillar{opacity:.55;background:rgba(255,255,255,.025)}
+
+    .analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    .section-card{
+      border-radius:20px;padding:18px;
+      background:linear-gradient(180deg, rgba(19,24,45,.84), rgba(13,18,34,.82));
+      box-shadow:var(--shadow-soft)
+    }
+    .section-card h3{font-size:18px;margin-bottom:14px;color:#fff;display:flex;align-items:center;gap:9px}
+    .section-card h3::before{content:"◆";font-size:12px;color:var(--accent)}
+    .elements{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+    .element{
+      border-radius:16px;padding:13px 10px;text-align:center;color:#fff;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 8px 24px rgba(0,0,0,.16)
+    }
+    .element span{display:block;font-size:13px;font-weight:700;opacity:.92}
+    .element b{display:block;font-size:25px;margin-top:4px}
+    .element small{display:block;margin-top:4px;opacity:.9}
+    .wood{background:linear-gradient(180deg,#5bbc8e,#2d8b62)}
+    .fire{background:linear-gradient(180deg,#ff9a78,#de6042)}
+    .earth{background:linear-gradient(180deg,#dfbb79,#b38336)}
+    .metal{background:linear-gradient(180deg,#c7cfdf,#8d99b4)}
+    .water{background:linear-gradient(180deg,#79c4ff,#367fca)}
+    .timeline{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+    .timeline::-webkit-scrollbar{height:8px}
+    .timeline::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
+    .cycle{
+      min-width:140px;border-radius:16px;padding:13px;
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02))
+    }
+    .cycle.current{outline:2px solid rgba(216,179,108,.8);background:linear-gradient(180deg, rgba(216,179,108,.18), rgba(255,255,255,.05));box-shadow:0 0 0 4px rgba(216,179,108,.08)}
+    .cycle .gz{font-size:22px;font-weight:900;color:#f8e0a8}
+    .cycle .yr{font-size:11px;color:var(--muted);margin-top:5px}
+    .liunian-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+    .year-chip{border-radius:14px;padding:11px;background:rgba(255,255,255,.04)}
+    .year-chip.current{border-color:rgba(216,179,108,.7);background:rgba(216,179,108,.15);box-shadow:0 0 0 3px rgba(216,179,108,.07)}
+    .year-chip b{display:block;font-size:18px;color:#f9e3ae}
+    .note{line-height:1.82;font-size:13px;color:#d2d7e9}
+    .disclaimer{
+      margin-top:14px;padding:13px 15px;background:rgba(216,179,108,.1);
+      border:1px solid rgba(216,179,108,.18);border-radius:14px;font-size:12px;color:#f2deb3;line-height:1.7
+    }
+    .codebox{
+      width:100%;min-height:112px;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;
+      background:rgba(6,9,18,.35);color:#f0f3ff;font-size:12px;line-height:1.7;resize:vertical
+    }
+    .toast{
+      position:fixed;right:18px;bottom:18px;background:#111629;color:#fff;border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;padding:12px 16px;box-shadow:var(--shadow);opacity:0;transform:translateY(18px);pointer-events:none;transition:.2s;max-width:360px;z-index:99
+    }
+    .toast.show{opacity:1;transform:translateY(0)}
+
+    @media(min-width:901px){
+      .hero-actions{
+        top:34px;
+        margin-top:52px;
+      }
+      .hero-actions .status{
+        position:relative;
+        top:-24px;
+      }
+    }
+
+    @media(max-width:900px){
+      .grid,.analysis-grid{grid-template-columns:1fr}
+      .public-form{grid-template-columns:1fr 1fr}
+      .auth-box{grid-template-columns:1fr}
+      .hero{align-items:flex-start;flex-direction:column;padding:28px}
+      .status{text-align:left}
+      .pillars{grid-template-columns:1fr 1fr}
+      .elements{grid-template-columns:repeat(5,minmax(72px,1fr));overflow-x:auto}
+      .analysis-picker{grid-template-columns:1fr}
+      .hero-actions{width:100%;justify-content:space-between}
+    }
+    @media(max-width:560px){
+      .app{width:min(100% - 18px,1320px);margin:14px auto 48px}
+      .hero{padding:24px 20px;border-radius:24px}
+      .hero h1{font-size:30px}
+      .hero-badge{font-size:11px;padding:7px 12px}
+      .public-form,.pillars{grid-template-columns:1fr}
+      .elements{grid-template-columns:repeat(2,1fr)}
+      .card,.section-card{padding:18px}
+      .hero-actions{
+        width:100%;
+        margin-top:34px;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:2px;
+        column-gap:2px;
+        row-gap:6px;
+        align-items:center;
+        margin-top:14px;
+      }
+      .hero-actions .status{
+        grid-column:1 / -1;
+        width:100%;
+        margin:0 0 -2px;
+        text-align:center;
+        position:relative;
+        top:-8px;
+      }
+      .hero-actions .btn{
+        width:100%;
+        min-height:42px;
+        justify-content:center;
+        margin:0;
+      }
+      .hero-actions #profileEditOpenBtn,.hero-actions #logoutBtn{grid-column:auto}
+    }
+
+    /* PC visibility fixes */
+    @media(min-width:901px){
+      .admin-head{align-items:flex-start;flex-wrap:wrap}
+      .admin-head .actions{margin-left:auto;display:flex!important;visibility:visible!important;opacity:1!important}
+      #newMemberBtn{display:inline-flex!important;visibility:visible!important;opacity:1!important;min-width:118px;justify-content:center}
+      .public-form{grid-template-columns:repeat(4,minmax(0,1fr))}
+      .public-time-field{grid-column:1 / span 1}
+      .public-time-field .public-time-unknown{margin:8px 0 0;padding:9px 11px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.045);color:#f0f2fb;font-weight:700}
+      .public-time-field #publicLeapWrap{margin-top:8px}
+      .member-time-options{display:block!important;margin-top:-2px;margin-bottom:14px;padding:11px 12px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.045);color:#f0f2fb;font-weight:700}
+    }
+
+    .modal-backdrop{position:fixed;inset:0;background:rgba(5,8,18,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:120}
+    .modal-card{width:min(720px,100%);max-height:90vh;overflow:auto;background:linear-gradient(180deg,rgba(21,27,51,.98),rgba(13,18,34,.98));border:1px solid rgba(255,255,255,.12);border-radius:24px;box-shadow:0 28px 80px rgba(0,0,0,.45);padding:22px}
+    .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+    .modal-head h2{margin:0;font-family:"Noto Serif KR",serif;font-size:22px}
+    .modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+    .modal-grid>label{display:flex;flex-direction:column;min-width:0;gap:8px;font-size:13px;font-weight:800;color:#f0f2fb}
+    .modal-grid>label>span:first-child{display:block;line-height:1.3}
+    .modal-grid input,.modal-grid select,.modal-grid textarea{
+      width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(255,255,255,.1);
+      background:rgba(7,11,23,.72);color:#f6f7fb;border-radius:13px;padding:11px 12px;
+      font:inherit;font-weight:500;outline:none;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease
+    }
+    .modal-grid input,.modal-grid select{min-height:44px}
+    .modal-grid textarea{resize:vertical;min-height:88px;line-height:1.55}
+    .modal-grid input:focus,.modal-grid select:focus,.modal-grid textarea:focus{
+      border-color:rgba(216,179,108,.7);box-shadow:0 0 0 4px rgba(216,179,108,.12);background:rgba(10,15,30,.88)
+    }
+    .modal-grid .checkbox-row{
+      min-height:44px;margin:0;padding:10px 12px;box-sizing:border-box;border:1px solid rgba(255,255,255,.1);
+      border-radius:13px;background:rgba(255,255,255,.045);display:flex;align-items:center;gap:9px;color:#eef1fb;font-weight:700
+    }
+    .modal-grid .checkbox-row input[type=checkbox]{width:17px;height:17px;min-height:0;flex:0 0 auto;padding:0}
+    #editLeapWrap{align-self:end}
+    #editMemo{width:100%}
+    .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+    @media(max-width:620px){
+      .modal-backdrop{padding:10px}
+      .modal-card{width:100%;max-height:94vh;padding:18px;border-radius:20px}
+      .modal-head{gap:10px}
+      .modal-head h2{font-size:20px}
+      .modal-grid{grid-template-columns:1fr;gap:12px}
+      .modal-grid>label[style*="grid-column"]{grid-column:auto!important}
+      .modal-actions{flex-direction:column-reverse;gap:7px;margin-top:16px}
+      .modal-actions .btn{width:100%;min-height:44px}
+    }
+  
+    .tag-wrap{display:flex;flex-wrap:wrap;gap:8px}.mini-tag{display:inline-flex;gap:6px;align-items:center;padding:8px 10px;border:1px solid rgba(216,179,108,.24);border-radius:999px;background:rgba(216,179,108,.07);font-size:13px}.mini-tag b{color:#ead19b}.section-card .note{line-height:1.75}
+
+    /* Login welcome status: reserve upper space only while logged in */
+    .hero-status{
+      position:absolute;top:18px;left:34px;right:34px;z-index:6;
+      width:max-content;max-width:calc(100% - 68px);margin:0;
+      text-align:left;
+    }
+    .hero.has-login-status{padding-top:76px}
+    @media(min-width:901px){
+      .hero-actions{top:0;margin-top:88px}
+      .hero-status.welcome-right{left:auto;right:34px;text-align:right}
+    }
+    @media(max-width:900px){
+      .hero.has-login-status{padding-top:72px}
+      .hero-status{top:18px;left:28px;right:auto;max-width:calc(100% - 56px)}
+    }
+    @media(max-width:560px){
+      .hero.has-login-status{padding-top:68px}
+      .hero-status{top:16px;left:20px;right:20px;width:auto;max-width:none;text-align:center}
+      .hero-actions{margin-top:14px}
+    }
+</style>
+</head>
+<body>
+<main class="app">
+  <section class="hero" id="heroSection">
+    <div class="status hero-status hidden" id="authStatus"></div>
+    <div class="hero-copy"><div class="hero-badge">동양 명리 리포트 · Four Pillars Insight</div><h1>사주 분석</h1><p>사주팔자 · 오행 · 대운/세운을 한 화면에서 확인하세요.</p></div>
+    <div class="hero-actions"><button class="btn btn-primary" id="signupOpenBtn" type="button">회원가입</button><button class="btn btn-primary" id="loginOpenBtn" type="button" aria-disabled="false">로그인</button><button class="btn btn-soft hidden" id="profileEditOpenBtn" type="button">회원정보 수정</button><button class="btn btn-soft hidden" id="logoutBtn" type="button">로그아웃</button></div>
+  </section>
+
+  <section class="view" style="margin-top:18px">
+    <section class="card">
+      <div class="section-title"><div><h2>내 사주 분석</h2><div class="small">회원 로그인 시 저장된 출생정보를 자동으로 불러옵니다.</div></div></div>
+      <div class="public-form">
+        <div class="field"><label>이름</label><input id="publicName" maxlength="50" placeholder="예: 홍길동"></div>
+        <div class="field"><label>생년월일</label><input id="publicBirthDate" type="date"></div>
+        <div class="field"><label>성별</label><select id="publicGender"><option value="M">남성</option><option value="F">여성</option><option value="OTHER">기타/미지정</option></select></div>
+        <div class="field"><label>달력 구분</label><select id="publicCalendarType"><option value="SOLAR">양력</option><option value="LUNAR">음력</option></select></div>
+        <div class="field public-time-field"><label>태어난 시간</label><input id="publicBirthTime" type="time"><label class="checkbox-row public-time-unknown"><input id="publicTimeUnknown" type="checkbox">태어난 시간을 모름</label><label class="checkbox-row hidden" id="publicLeapWrap"><input id="publicLeapMonth" type="checkbox">윤달</label></div>
+        <div class="field"><label>출생지(선택)</label><input id="publicBirthPlace" maxlength="100" placeholder="예: 서울"></div>
+        <div class="field"><label>출생 시간대</label><select id="publicBirthTimezone"><option value="Asia/Seoul">Asia/Seoul (한국)</option><option value="Asia/Tokyo">Asia/Tokyo</option><option value="Asia/Shanghai">Asia/Shanghai</option><option value="UTC">UTC</option></select></div>
+      </div>
+      <div class="public-actions"><button class="btn btn-primary" id="publicAnalyzeBtn" type="button">사주 분석하기</button></div>
+      <div id="analysisEmpty" class="empty">출생정보를 입력하고 ‘사주 분석하기’를 눌러주세요.</div>
+      <div id="analysisResult" class="hidden"></div>
+    </section>
+  </section>
+
+  <section id="signupModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head"><div><h2>회원가입</h2><div class="small">계정과 출생정보를 함께 등록합니다. 이메일 인증 없이 바로 가입됩니다.</div></div><button class="btn btn-light" id="signupCloseBtn" type="button">닫기</button></div>
+      <form id="signupForm">
+        <div class="two"><div class="field"><label>이메일</label><input id="regEmail" type="email" required></div><div class="field"><label>비밀번호</label><input id="regPassword" type="password" minlength="6" required></div></div>
+        <div class="modal-grid">
+          <div class="field"><label>이름</label><input id="regName" required maxlength="50"></div>
+          <div class="field"><label>생년월일</label><input id="regBirthDate" type="date" required></div>
+          <div class="field"><label>성별</label><select id="regGender"><option value="M">남성</option><option value="F">여성</option><option value="OTHER">기타/미지정</option></select></div>
+          <div class="field"><label>달력 구분</label><select id="regCalendarType"><option value="SOLAR">양력</option><option value="LUNAR">음력</option></select></div>
+          <div class="field"><label>태어난 시간</label><input id="regBirthTime" type="time"></div>
+          <div class="field"><label>시간 옵션</label><label class="checkbox-row" style="margin:0;min-height:46px"><input id="regTimeUnknown" type="checkbox">태어난 시간을 모름</label><label class="checkbox-row hidden" id="regLeapWrap" style="margin-top:8px"><input id="regLeapMonth" type="checkbox">윤달</label></div>
+          <div class="field"><label>출생지(선택)</label><input id="regBirthPlace" maxlength="100"></div>
+          <div class="field"><label>출생 시간대</label><select id="regBirthTimezone"><option value="Asia/Seoul">Asia/Seoul (한국)</option><option value="Asia/Tokyo">Asia/Tokyo</option><option value="Asia/Shanghai">Asia/Shanghai</option><option value="UTC">UTC</option></select></div>
+        </div>
+        <div class="field"><label>메모(선택)</label><textarea id="regMemo" rows="3" maxlength="1000"></textarea></div>
+        <div class="modal-actions"><button class="btn btn-light" id="signupCancelBtn" type="button">취소</button><button class="btn btn-primary" id="signupBtn" type="submit">회원가입</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section id="loginModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head"><div><h2>로그인</h2><div class="small">로그인하면 저장된 생년월일과 출생정보를 자동으로 불러옵니다.</div></div><button class="btn btn-light" id="loginCloseBtn" type="button">닫기</button></div>
+      <div class="field"><label>이메일</label><input id="loginEmail" type="email" autocomplete="username"></div>
+      <div class="field"><label>비밀번호</label><input id="loginPassword" type="password" autocomplete="current-password"></div>
+      <div class="modal-actions"><button class="btn btn-primary" id="loginBtn" type="button" aria-disabled="false">로그인</button></div>
+      <div class="small" id="loginMessage" style="margin-top:10px"></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+  <div class="modal-backdrop hidden" id="profileEditModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="profileEditTitle">
+      <div class="modal-head"><div><h2 id="profileEditTitle">회원정보 수정</h2><div class="small">로그인한 계정의 출생·프로필 정보를 수정합니다.</div></div><button class="btn btn-soft" id="profileEditCloseBtn" type="button">닫기</button></div>
+      <form id="profileEditForm">
+        <div class="modal-grid">
+          <label><span>이름</span><input id="editName" required></label>
+          <label><span>생년월일</span><input id="editBirthDate" type="date" required></label>
+          <label><span>성별</span><select id="editGender"><option value="M">남성</option><option value="F">여성</option><option value="OTHER">기타/선택 안 함</option></select></label>
+          <label><span>달력 구분</span><select id="editCalendarType"><option value="SOLAR">양력</option><option value="LUNAR">음력</option></select></label>
+          <label><span>태어난 시간</span><input id="editBirthTime" type="time"></label>
+          <label><span>시간 옵션</span><span class="checkbox-row"><input id="editTimeUnknown" type="checkbox"> 태어난 시간을 모름</span></label>
+          <label id="editLeapWrap" class="hidden"><span>음력 옵션</span><span class="checkbox-row"><input id="editLeapMonth" type="checkbox"> 윤달</span></label>
+          <label><span>출생지</span><input id="editBirthPlace" placeholder="예: 서울"></label>
+          <label><span>출생 시간대</span><input id="editBirthTimezone" value="Asia/Seoul"></label>
+          <label style="grid-column:1/-1"><span>메모</span><textarea id="editMemo" rows="3"></textarea></label>
+        </div>
+        <div class="modal-actions"><button class="btn btn-soft" id="profileEditCancelBtn" type="button">취소</button><button class="btn btn-primary" id="profileEditSaveBtn" type="submit">저장</button></div>
+      </form>
+    </div>
+  </div>
+
+<script>
+const SUPABASE_URL='https://icggthyluhicpceuzdll.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_tz0c3dJOw0IhnYpoxVVc6A_K28328SB';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const $=id=>document.getElementById(id);
+const el={
+  authStatus:$('authStatus'), signupOpenBtn:$('signupOpenBtn'), loginOpenBtn:$('loginOpenBtn'), profileEditOpenBtn:$('profileEditOpenBtn'), logoutBtn:$('logoutBtn'),
+  publicName:$('publicName'), publicBirthDate:$('publicBirthDate'), publicGender:$('publicGender'), publicCalendarType:$('publicCalendarType'), publicBirthTime:$('publicBirthTime'), publicBirthPlace:$('publicBirthPlace'), publicBirthTimezone:$('publicBirthTimezone'), publicTimeUnknown:$('publicTimeUnknown'), publicLeapWrap:$('publicLeapWrap'), publicLeapMonth:$('publicLeapMonth'), publicAnalyzeBtn:$('publicAnalyzeBtn'), analysisEmpty:$('analysisEmpty'), analysisResult:$('analysisResult'),
+  signupModal:$('signupModal'), signupCloseBtn:$('signupCloseBtn'), signupCancelBtn:$('signupCancelBtn'), signupForm:$('signupForm'), signupBtn:$('signupBtn'), regEmail:$('regEmail'), regPassword:$('regPassword'), regName:$('regName'), regBirthDate:$('regBirthDate'), regGender:$('regGender'), regCalendarType:$('regCalendarType'), regBirthTime:$('regBirthTime'), regTimeUnknown:$('regTimeUnknown'), regLeapWrap:$('regLeapWrap'), regLeapMonth:$('regLeapMonth'), regBirthPlace:$('regBirthPlace'), regBirthTimezone:$('regBirthTimezone'), regMemo:$('regMemo'),
+  loginModal:$('loginModal'), loginCloseBtn:$('loginCloseBtn'), loginEmail:$('loginEmail'), loginPassword:$('loginPassword'), loginBtn:$('loginBtn'), loginMessage:$('loginMessage'), profileEditModal:$('profileEditModal'), profileEditCloseBtn:$('profileEditCloseBtn'), profileEditCancelBtn:$('profileEditCancelBtn'), profileEditForm:$('profileEditForm'), profileEditSaveBtn:$('profileEditSaveBtn'), editName:$('editName'), editBirthDate:$('editBirthDate'), editGender:$('editGender'), editCalendarType:$('editCalendarType'), editBirthTime:$('editBirthTime'), editTimeUnknown:$('editTimeUnknown'), editLeapMonth:$('editLeapMonth'), editLeapWrap:$('editLeapWrap'), editBirthPlace:$('editBirthPlace'), editBirthTimezone:$('editBirthTimezone'), editMemo:$('editMemo'), toast:$('toast')
+};
+let session=null;
+function toast(m){el.toast.textContent=m;el.toast.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.toast.classList.remove('show'),2600)}
+function esc(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function genderLabel(v){return {M:'남성',F:'여성',OTHER:'기타/미지정'}[v]||v}
+function openModal(node){node.classList.remove('hidden');node.setAttribute('aria-hidden','false')}
+function closeModal(node){node.classList.add('hidden');node.setAttribute('aria-hidden','true')}
+function syncPublicInputs(){const unknown=el.publicTimeUnknown.checked;el.publicBirthTime.disabled=unknown;if(unknown)el.publicBirthTime.value='';const lunar=el.publicCalendarType.value==='LUNAR';el.publicLeapWrap.classList.toggle('hidden',!lunar);if(!lunar)el.publicLeapMonth.checked=false}
+function syncRegInputs(){const unknown=el.regTimeUnknown.checked;el.regBirthTime.disabled=unknown;el.regBirthTime.required=!unknown;if(unknown)el.regBirthTime.value='';const lunar=el.regCalendarType.value==='LUNAR';el.regLeapWrap.classList.toggle('hidden',!lunar);if(!lunar)el.regLeapMonth.checked=false}
+function applyProfile(p){el.publicName.value=p.name||'';el.publicBirthDate.value=p.birth_date||'';el.publicGender.value=p.gender||'OTHER';el.publicCalendarType.value=p.calendar_type||'SOLAR';el.publicBirthTime.value=p.birth_time?(p.birth_time||'').slice(0,5):'';el.publicTimeUnknown.checked=!!p.birth_time_unknown;el.publicLeapMonth.checked=!!p.is_leap_month;el.publicBirthPlace.value=p.birth_place||'';el.publicBirthTimezone.value=p.birth_timezone||'Asia/Seoul';syncPublicInputs()}
+async function loadMyProfile(userId,autoAnalyze=true){const {data,error}=await db.from('astrology_user_profiles').select('*').eq('user_id',userId).maybeSingle();if(error){toast('출생정보 불러오기 오류: '+error.message);return null}if(!data){toast('저장된 출생정보가 없습니다.');return null}applyProfile(data);if(session){el.authStatus.textContent=data.name?`${data.name}님 환영합니다.`:'환영합니다.';el.authStatus.classList.add('welcome-right')}toast('저장된 출생정보를 불러왔습니다.');if(autoAnalyze)analyzePublic();return data}
+async function refreshSession(){const {data}=await db.auth.getSession();setSession(data.session)}
+function setSession(s){session=s;const on=!!s;el.authStatus.textContent=on?'환영합니다.':'';el.authStatus.classList.toggle('hidden',!on);el.authStatus.classList.toggle('welcome-right',on);document.getElementById('heroSection')?.classList.toggle('has-login-status',on);el.signupOpenBtn.classList.toggle('hidden',on);el.loginOpenBtn.classList.toggle('hidden',on);el.profileEditOpenBtn.classList.toggle('hidden',!on);el.logoutBtn.classList.toggle('hidden',!on);if(on&&s.user)loadMyProfile(s.user.id,false)}
+
+function syncEditInputs(){const unknown=el.editTimeUnknown.checked;el.editBirthTime.disabled=unknown;el.editBirthTime.required=!unknown;if(unknown)el.editBirthTime.value='';const lunar=el.editCalendarType.value==='LUNAR';el.editLeapWrap.classList.toggle('hidden',!lunar);if(!lunar)el.editLeapMonth.checked=false}
+async function openProfileEdit(){if(!session?.user){toast('로그인 후 이용하세요.');return}const {data,error}=await db.from('astrology_user_profiles').select('*').eq('user_id',session.user.id).maybeSingle();if(error){toast('회원정보 불러오기 오류: '+error.message);return}if(!data){toast('저장된 회원정보가 없습니다.');return}el.editName.value=data.name||'';el.editBirthDate.value=data.birth_date||'';el.editGender.value=data.gender||'OTHER';el.editCalendarType.value=data.calendar_type||'SOLAR';el.editBirthTime.value=data.birth_time?(data.birth_time||'').slice(0,5):'';el.editTimeUnknown.checked=!!data.birth_time_unknown;el.editLeapMonth.checked=!!data.is_leap_month;el.editBirthPlace.value=data.birth_place||'';el.editBirthTimezone.value=data.birth_timezone||'Asia/Seoul';el.editMemo.value=data.memo||'';syncEditInputs();openModal(el.profileEditModal);setTimeout(()=>el.editName.focus(),0)}
+async function saveProfileEdit(e){e.preventDefault();if(!session?.user){toast('로그인이 필요합니다.');return}const unknown=el.editTimeUnknown.checked;const payload={name:el.editName.value.trim(),birth_date:el.editBirthDate.value,birth_time:unknown?null:el.editBirthTime.value,birth_time_unknown:unknown,gender:el.editGender.value,calendar_type:el.editCalendarType.value,is_leap_month:el.editCalendarType.value==='LUNAR'?el.editLeapMonth.checked:false,birth_place:el.editBirthPlace.value.trim()||null,birth_timezone:el.editBirthTimezone.value.trim()||'Asia/Seoul',memo:el.editMemo.value.trim()||null,updated_at:new Date().toISOString()};if(!payload.name||!payload.birth_date||(!unknown&&!payload.birth_time)){toast('필수 항목을 확인하세요.');return}el.profileEditSaveBtn.disabled=true;el.profileEditSaveBtn.textContent='저장 중...';try{const {data,error}=await db.from('astrology_user_profiles').update(payload).eq('user_id',session.user.id).select().single();if(error){toast('회원정보 수정 오류: '+error.message);return}applyProfile(data);closeModal(el.profileEditModal);toast('회원정보가 수정되었습니다.');analyzePublic()}finally{el.profileEditSaveBtn.disabled=false;el.profileEditSaveBtn.textContent='저장'}}
+
+async function memberLogin(){const email=el.loginEmail.value.trim().toLowerCase(),password=el.loginPassword.value;if(!email||!password){el.loginMessage.textContent='이메일과 비밀번호를 입력하세요.';el.loginBtn.disabled=false;return}el.loginMessage.textContent='로그인 중...';el.loginBtn.dataset.loading='1';el.loginBtn.disabled=true;el.loginBtn.setAttribute('aria-disabled','true');try{const {data,error}=await db.auth.signInWithPassword({email,password});if(error){const msg=String(error.message||'');if(/invalid login credentials/i.test(msg)){el.loginMessage.textContent='로그인 실패: 이메일 또는 비밀번호가 일치하지 않습니다. 최근 가입한 이메일 주소와 가입 때 입력한 비밀번호를 확인해주세요.'}else if(/email not confirmed/i.test(msg)){el.loginMessage.textContent='로그인 실패: 계정 확인 상태를 점검해주세요.'}else{el.loginMessage.textContent='로그인 실패: '+msg}return}if(!data?.session||!data?.user){el.loginMessage.textContent='로그인 세션을 만들지 못했습니다. 다시 시도해주세요.';return}el.loginMessage.textContent='';setSession(data.session);closeModal(el.loginModal);await loadMyProfile(data.user.id,true)}catch(err){console.error(err);el.loginMessage.textContent='로그인 중 오류가 발생했습니다. 다시 시도하세요.'}finally{delete el.loginBtn.dataset.loading;el.loginBtn.disabled=false;el.loginBtn.setAttribute('aria-disabled','false')}}
+async function signup(e){e.preventDefault();const unknown=el.regTimeUnknown.checked;const email=el.regEmail.value.trim(),password=el.regPassword.value;const metadata={name:el.regName.value.trim(),birth_date:el.regBirthDate.value,birth_time:unknown?'':el.regBirthTime.value,birth_time_unknown:unknown,gender:el.regGender.value,calendar_type:el.regCalendarType.value,is_leap_month:el.regCalendarType.value==='LUNAR'?el.regLeapMonth.checked:false,birth_place:el.regBirthPlace.value.trim(),birth_timezone:el.regBirthTimezone.value||'Asia/Seoul',memo:el.regMemo.value.trim()};if(!email||password.length<6||!metadata.name||!metadata.birth_date||(!unknown&&!metadata.birth_time)){toast('필수 항목을 확인하세요.');return}el.signupBtn.disabled=true;try{const resp=await fetch(SUPABASE_URL+'/functions/v1/signup-no-email',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({email,password,metadata})});const result=await resp.json().catch(()=>({}));if(!resp.ok){toast('회원가입 오류: '+(result.error||'회원가입에 실패했습니다.'));return}const {data,error}=await db.auth.signInWithPassword({email,password});if(error||!data.session){toast('계정은 생성되었지만 로그인에 실패했습니다: '+(error?.message||'세션 생성 실패'));return}closeModal(el.signupModal);setSession(data.session);await loadMyProfile(data.session.user.id,true);toast('회원가입 및 로그인 완료')}catch(err){console.error(err);toast('회원가입 중 오류가 발생했습니다. 다시 시도하세요.')}finally{el.signupBtn.disabled=false}}
+async function logout(){await db.auth.signOut();setSession(null);toast('로그아웃되었습니다.')}
+const GAN_EL={甲:'목',乙:'목',丙:'화',丁:'화',戊:'토',己:'토',庚:'금',辛:'금',壬:'수',癸:'수'};
+const ZHI_EL={寅:'목',卯:'목',巳:'화',午:'화',辰:'토',戌:'토',丑:'토',未:'토',申:'금',酉:'금',亥:'수',子:'수'};
+const EL_CLASS={목:'wood',화:'fire',토:'earth',금:'metal',수:'water'};
+function getSolarLunar(m){const [y,mo,d]=m.birth_date.split('-').map(Number);let h=12,mi=0;if(!m.birth_time_unknown&&m.birth_time)[h,mi]=m.birth_time.split(':').map(Number);if(m.calendar_type==='LUNAR'){const lm=m.is_leap_month?-mo:mo;const lunar=Lunar.fromYmdHms(y,lm,d,h,mi,0);return {solar:lunar.getSolar(),lunar}}const solar=Solar.fromYmdHms(y,mo,d,h,mi,0);return {solar,lunar:solar.getLunar()}}
+function safeCall(obj,method,fallback='-'){try{return obj&&typeof obj[method]==='function'?obj[method]():fallback}catch(e){return fallback}}
+function pillarMeta(ec,key,unknown){if(unknown&&key==='Time')return '출생시간 미상';try{const hide=ec[`get${key}HideGan`]();const ten=ec[`get${key}ShiShenGan`]();const ny=ec[`get${key}NaYin`]();return `${ten||'-'} · 장간 ${Array.isArray(hide)?hide.join(','):hide||'-'}<br>${ny||''}`}catch(e){return '-'}}
+function elementCounts(pillars,unknown){const c={목:0,화:0,토:0,금:0,수:0};pillars.forEach((gz,i)=>{if(unknown&&i===3)return;if(!gz)return;const a=[...gz];if(GAN_EL[a[0]])c[GAN_EL[a[0]]]++;if(ZHI_EL[a[1]])c[ZHI_EL[a[1]]]++});return c}
+function buildLiuNian(da,currentYear){if(!da)return '<div class="note">현재 연도에 해당하는 대운 구간을 찾지 못했습니다.</div>';try{return '<div class="liunian-grid">'+da.getLiuNian().map(y=>{const yr=safeCall(y,'getYear',''),gz=safeCall(y,'getGanZhi','');return `<div class="year-chip ${Number(yr)===currentYear?'current':''}"><b>${esc(gz)}</b><span>${esc(yr)}년</span></div>`}).join('')+'</div>'}catch(e){return '<div class="note">세운 정보를 불러오지 못했습니다.</div>'}}
+function buildDaeun(ec,m,currentYear){if(m.birth_time_unknown)return {html:'<div class="note">출생시간이 없어 대운 시작 시점 계산을 표시하지 않습니다.</div>',years:''};if(!['M','F'].includes(m.gender))return {html:'<div class="note">전통 대운 진행 방향 계산에는 성별 값이 필요합니다.</div>',years:''};try{const yun=ec.getYun(m.gender==='M'?1:0),list=yun.getDaYun(10);let current=null;const html=list.map(d=>{const sy=safeCall(d,'getStartYear',''),ey=safeCall(d,'getEndYear',''),sa=safeCall(d,'getStartAge',''),ea=safeCall(d,'getEndAge',''),gz=safeCall(d,'getGanZhi',''),on=Number(sy)<=currentYear&&currentYear<=Number(ey);if(on)current=d;return `<div class="cycle ${on?'current':''}"><div class="gz">${esc(gz)}</div><div>${esc(sa)}~${esc(ea)}세</div><div class="yr">${esc(sy)}~${esc(ey)}</div></div>`}).join('');return {html:`<div class="timeline">${html}</div>`,years:buildLiuNian(current,currentYear)}}catch(e){return {html:`<div class="note">대운 계산 중 오류: ${esc(e.message)}</div>`,years:''}}}
+
+function dayMasterInterpretation(gan){
+  const M={
+    '甲':{el:'목',kw:'큰 나무',text:'성장과 개척을 중시하는 기운으로 봅니다. 방향을 정하면 꾸준히 밀고 가는 힘이 강한 편이며, 지나친 직선성은 조율이 필요합니다.'},
+    '乙':{el:'목',kw:'풀과 덩굴',text:'유연함과 적응력을 중시하는 기운으로 봅니다. 관계 속에서 기회를 찾는 힘이 좋고, 망설임이 길어지지 않도록 기준을 세우는 것이 중요합니다.'},
+    '丙':{el:'화',kw:'태양',text:'밝고 표현력이 강한 기운으로 봅니다. 사람을 모으고 분위기를 이끄는 힘이 있으나, 속도가 빠를 때는 세부 점검이 도움이 됩니다.'},
+    '丁':{el:'화',kw:'등불',text:'섬세한 집중력과 감각을 중시하는 기운으로 봅니다. 작은 변화도 잘 읽는 편이며, 감정 소모가 커지지 않도록 휴식과 경계 설정이 필요합니다.'},
+    '戊':{el:'토',kw:'큰 산',text:'안정과 책임을 중시하는 기운으로 봅니다. 중심을 잡고 버티는 힘이 강하며, 변화가 필요한 시점에는 유연성을 의식하는 것이 좋습니다.'},
+    '己':{el:'토',kw:'밭과 흙',text:'실용성과 관리 능력을 중시하는 기운으로 봅니다. 세밀하게 챙기고 돌보는 힘이 좋으며, 타인의 요구를 과하게 떠안지 않는 균형이 중요합니다.'},
+    '庚':{el:'금',kw:'단단한 쇠',text:'결단과 실행을 중시하는 기운으로 봅니다. 원칙과 승부욕이 강한 편이며, 관계에서는 직설적인 표현을 부드럽게 다듬는 것이 도움이 됩니다.'},
+    '辛':{el:'금',kw:'보석',text:'정교함과 완성도를 중시하는 기운으로 봅니다. 품질과 기준을 중요하게 여기며, 완벽을 추구하다 지치지 않도록 우선순위를 정하는 것이 좋습니다.'},
+    '壬':{el:'수',kw:'큰 바다',text:'확장성과 사고의 폭을 중시하는 기운으로 봅니다. 다양한 정보와 사람을 연결하는 힘이 좋으며, 방향이 분산되지 않도록 집중 목표가 필요합니다.'},
+    '癸':{el:'수',kw:'비와 이슬',text:'관찰력과 섬세한 감응을 중시하는 기운으로 봅니다. 내면이 깊고 상황 파악이 빠른 편이며, 생각이 많아질 때는 행동으로 전환하는 연습이 도움이 됩니다.'}
+  };
+  return M[gan]||{el:'',kw:'',text:'일간을 중심으로 원국 전체의 균형을 함께 살펴보는 것이 중요합니다.'};
+}
+function elementBalanceInterpretation(counts){
+  const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const max=entries[0], min=[...entries].sort((a,b)=>a[1]-b[1])[0];
+  const desc={목:'성장·기획·확장',화:'표현·활력·추진',토:'안정·관리·중재',금:'판단·원칙·정리',수:'사고·정보·유연성'};
+  return {strong:max[0],weak:min[0],text:`${max[0]} 기운이 상대적으로 두드러져 ${desc[max[0]]}의 성향이 강조될 수 있습니다. 반대로 ${min[0]} 기운은 상대적으로 적어 ${desc[min[0]]} 영역을 의식적으로 보완해 보는 해석이 가능합니다.`};
+}
+function tenGodGuidance(ec,unknown){
+  const vals=[];
+  for(const k of ['Year','Month','Day','Time']){if(unknown&&k==='Time')continue; const v=safeCall(ec,'get'+k+'ShiShenGan',''); if(v) vals.push(v)}
+  const map={비견:'자기주도·동료의식',겁재:'경쟁·독립성',식신:'표현·생산성',상관:'창의·개혁성',편재:'기회·대외활동',정재:'안정적 관리·재무감각',편관:'도전·긴장·책임',정관:'질서·규범·직업의식',편인:'직관·탐구',정인:'학습·보호·문서'};
+  const uniq=[...new Set(vals)].filter(x=>map[x]);
+  return uniq.length?uniq.slice(0,4).map(x=>`<span class="mini-tag"><b>${esc(x)}</b> ${esc(map[x])}</span>`).join(''):'<span class="muted">십신 정보는 원국 전체 배치와 함께 해석해야 합니다.</span>';
+}
+function lifestyleInterpretation(dm,balance){
+  const el=dm.el;
+  const work={목:'기획·교육·콘텐츠·성장형 업무',화:'영업·마케팅·홍보·리더십 역할',토:'운영·관리·조정·자산관리 성격의 업무',금:'품질·분석·기술·규정·의사결정 업무',수:'연구·데이터·상담·네트워크·전략 업무'}[el]||'본인의 강점을 꾸준히 활용할 수 있는 업무';
+  const relation={목:'서로의 성장을 돕는 관계',화:'표현과 피드백이 활발한 관계',토:'신뢰와 안정감을 주는 관계',금:'약속과 기준이 분명한 관계',수:'대화와 이해의 폭이 넓은 관계'}[el]||'균형 있는 관계';
+  return {work,relation,money:`재물운은 특정 오행 하나보다 재성의 위치, 강약, 대운 흐름을 함께 봐야 합니다. 현재 원국에서는 ${balance.strong} 기운의 장점을 활용하되 ${balance.weak} 기운과 관련된 계획·관리 습관을 보완하는 관점이 유용합니다.`,health:'건강 항목은 전통 명리의 상징적 참고에 불과하며 의학적 진단으로 사용할 수 없습니다. 생활 리듬, 수면, 운동, 정기 검진을 우선하세요.'};
+}
+function currentFlowInterpretation(dy,currentYear){
+  return `<div class="note">${currentYear}년의 세운은 해당 연도의 간지와 현재 대운이 원국과 어떤 합·충·형·파를 이루는지를 함께 살피는 방식으로 해석합니다. 위의 대운·세운 표에서 현재 구간을 확인하고, 중요한 결정은 실제 환경과 조건을 우선하여 판단하세요.</div>`;
+}
+function analyzeMember(m){if(typeof Solar==='undefined'||typeof Lunar==='undefined'){toast('만세력 라이브러리를 불러오지 못했습니다.');return}try{const {solar,lunar}=getSolarLunar(m),ec=lunar.getEightChar(),pillars=[ec.getYear(),ec.getMonth(),ec.getDay(),ec.getTime()],display=m.birth_time_unknown?[pillars[0],pillars[1],pillars[2],'--']:pillars,counts=elementCounts(pillars,m.birth_time_unknown),currentYear=new Date().getFullYear(),dy=buildDaeun(ec,m,currentYear);const elementHtml=Object.entries(counts).map(([k,v])=>`<div class="element ${EL_CLASS[k]}"><span>${k}</span><b>${v}</b><small>${Math.round(v/(m.birth_time_unknown?6:8)*100)}%</small></div>`).join('');const keys=['Year','Month','Day','Time'],labels=['년주','월주','일주','시주'];const pillarHtml=display.map((gz,i)=>`<div class="pillar ${m.birth_time_unknown&&i===3?'unknown-pillar':''}"><div class="label">${labels[i]}</div><div class="gz">${esc(gz)}</div><div class="meta">${pillarMeta(ec,keys[i],m.birth_time_unknown)}</div></div>`).join('');const dayGan=[...ec.getDay()][0],dm=dayMasterInterpretation(dayGan),bal=elementBalanceInterpretation(counts),life=lifestyleInterpretation(dm,bal),tenGod=tenGodGuidance(ec,m.birth_time_unknown);el.analysisResult.innerHTML=`<div class="result-hero"><h2>${esc(m.name)}님의 사주 원국</h2><div class="muted">입력 ${esc(m.birth_date)} ${m.birth_time_unknown?'시간 모름':esc((m.birth_time||'').slice(0,5))} · 변환 양력 ${esc(solar.toYmd())}</div></div><div class="pillars">${pillarHtml}</div><div class="analysis-grid"><div class="section-card"><h3>오행 분포</h3><div class="elements">${elementHtml}</div><div class="note" style="margin-top:12px">${esc(bal.text)}</div></div><div class="section-card"><h3>원국 핵심 정보</h3><div class="note"><b>일간</b> ${esc(dayGan)}(${esc(dm.el)}) · <b>태원</b> ${esc(safeCall(ec,'getTaiYuan'))} · <b>명궁</b> ${esc(safeCall(ec,'getMingGong'))} · <b>신궁</b> ${esc(safeCall(ec,'getShenGong'))}</div></div></div><div class="analysis-grid"><div class="section-card"><h3>일간 성향</h3><div class="note"><b>${esc(dayGan)} · ${esc(dm.kw)}</b><br>${esc(dm.text)}</div></div><div class="section-card"><h3>십신 포인트</h3><div class="tag-wrap">${tenGod}</div><div class="small" style="margin-top:10px">십신은 위치와 강약에 따라 의미가 달라지므로 단독으로 단정하지 않습니다.</div></div></div><div class="analysis-grid"><div class="section-card"><h3>직업·적성 참고</h3><div class="note">${esc(life.work)}처럼 일간의 강점을 활용하는 분야와 궁합이 좋다고 해석할 수 있습니다. 다만 실제 적성은 경험·역량·환경을 함께 고려해야 합니다.</div></div><div class="section-card"><h3>대인관계 참고</h3><div class="note">${esc(life.relation)}에서 장점이 잘 드러날 수 있습니다. 원국의 강한 기운이 과해질 때는 상대의 속도와 기준을 함께 고려하는 것이 좋습니다.</div></div></div><div class="analysis-grid"><div class="section-card"><h3>재물 흐름 참고</h3><div class="note">${esc(life.money)}</div></div><div class="section-card"><h3>생활·건강 참고</h3><div class="note">${esc(life.health)}</div></div></div><div class="section-card" style="margin-top:16px"><h3>대운</h3>${dy.html}<div class="small" style="margin-top:10px">대운은 약 10년 단위의 큰 흐름을 보는 전통 명리 개념입니다. 현재 구간은 강조 표시됩니다.</div></div><div class="section-card" style="margin-top:16px"><h3>세운</h3>${dy.years}${currentFlowInterpretation(dy,currentYear)}</div><div class="section-card" style="margin-top:16px"><h3>종합 해석</h3><div class="note">${esc(dm.kw)}의 일간 특성을 중심으로 보면, ${esc(bal.strong)} 기운의 강점을 적극 활용하면서 ${esc(bal.weak)} 기운의 기능을 생활 습관과 의사결정 방식에서 보완하는 접근이 균형에 도움이 됩니다. 사주는 하나의 요소만으로 판단하기보다 원국·대운·세운을 함께 보는 것이 핵심입니다.</div></div><div class="disclaimer">본 결과는 전통 명리 계산을 바탕으로 한 참고·오락용 해석입니다. 의료·법률·재무·채용 등 중요한 의사결정의 근거로 사용하지 마세요.</div>`;el.analysisEmpty.classList.add('hidden');el.analysisResult.classList.remove('hidden')}catch(e){console.error(e);el.analysisResult.classList.add('hidden');el.analysisEmpty.classList.remove('hidden');el.analysisEmpty.textContent='계산 오류: '+e.message;toast('사주 계산 중 오류가 발생했습니다.')}}
+function analyzePublic(){const name=el.publicName.value.trim()||'사용자',birthDate=el.publicBirthDate.value,unknown=el.publicTimeUnknown.checked;if(!birthDate){toast('생년월일을 입력하세요.');return}if(!unknown&&!el.publicBirthTime.value){toast('태어난 시간을 입력하거나 시간 모름을 선택하세요.');return}analyzeMember({name,birth_date:birthDate,birth_time:unknown?null:el.publicBirthTime.value,birth_time_unknown:unknown,gender:el.publicGender.value,calendar_type:el.publicCalendarType.value,is_leap_month:el.publicCalendarType.value==='LUNAR'?el.publicLeapMonth.checked:false,birth_place:el.publicBirthPlace.value.trim()||null,birth_timezone:el.publicBirthTimezone.value||'Asia/Seoul'})}
+el.signupOpenBtn.onclick=()=>{el.signupForm.reset();el.regBirthTimezone.value='Asia/Seoul';syncRegInputs();openModal(el.signupModal)};
+el.signupCloseBtn.onclick=()=>closeModal(el.signupModal);el.signupCancelBtn.onclick=()=>closeModal(el.signupModal);el.signupForm.addEventListener('submit',signup);
+el.loginOpenBtn.disabled=false;el.loginOpenBtn.setAttribute('aria-disabled','false');
+el.loginOpenBtn.onclick=()=>{el.loginMessage.textContent='';el.loginBtn.disabled=false;el.loginBtn.setAttribute('aria-disabled','false');openModal(el.loginModal);setTimeout(()=>el.loginEmail.focus(),0)};
+el.loginCloseBtn.onclick=()=>closeModal(el.loginModal);
+el.loginBtn.onclick=memberLogin;
+[el.loginEmail,el.loginPassword].forEach(input=>input.addEventListener('input',()=>{if(el.loginBtn.disabled&&!el.loginBtn.dataset.loading){el.loginBtn.disabled=false;el.loginBtn.setAttribute('aria-disabled','false')}}));
+el.loginPassword.addEventListener('keydown',e=>{if(e.key==='Enter'&&!el.loginBtn.disabled)memberLogin()});
+el.profileEditOpenBtn.onclick=openProfileEdit;el.profileEditCloseBtn.onclick=()=>closeModal(el.profileEditModal);el.profileEditCancelBtn.onclick=()=>closeModal(el.profileEditModal);el.profileEditForm.addEventListener('submit',saveProfileEdit);el.editTimeUnknown.onchange=syncEditInputs;el.editCalendarType.onchange=syncEditInputs;el.profileEditModal.addEventListener('click',e=>{if(e.target===el.profileEditModal)closeModal(el.profileEditModal)});el.logoutBtn.onclick=logout;el.publicAnalyzeBtn.onclick=analyzePublic;el.publicTimeUnknown.onchange=syncPublicInputs;el.publicCalendarType.onchange=syncPublicInputs;el.regTimeUnknown.onchange=syncRegInputs;el.regCalendarType.onchange=syncRegInputs;
+el.signupModal.addEventListener('click',e=>{if(e.target===el.signupModal)closeModal(el.signupModal)});el.loginModal.addEventListener('click',e=>{if(e.target===el.loginModal)closeModal(el.loginModal)});
+db.auth.onAuthStateChange((_event,s)=>setSession(s));syncPublicInputs();syncRegInputs();refreshSession();
+</script>
+
+</body>
+</html>
