@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-MG 금융 데이터 대시보드 - Streamlit 단일 파일 버전
+MG 금융 데이터 대시보드 - Streamlit 배포용 단일 파일
 
-실행:
-    streamlit run Dashboard.py
-
-별도 로컬 웹서버 코드나 브라우저 자동 실행 코드는 사용하지 않습니다.
+Streamlit Cloud 환경에서 실행되는 대시보드입니다.
 """
 
 import streamlit as st
